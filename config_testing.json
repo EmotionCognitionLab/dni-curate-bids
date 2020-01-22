@@ -1,0 +1,17 @@
+{
+    "config" : {
+        "project_label" : "AffectiveIntelligence",
+        "reset" : true,
+        "entire_project": true,
+        "template_file": "bids-dni-v1.json"
+    },
+    "inputs" : {
+        "api_key" : {
+            "base" : "api-key",
+            "key" : "uscdni.flywheel.io:oepWHsARl4CUfN6me6"
+        }
+    },
+    "destination" : {
+    	"id" : "5da0d3adbf8f6f002e4ee433"
+    }
+}
