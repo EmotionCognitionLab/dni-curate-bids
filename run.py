@@ -10,7 +10,7 @@ if __name__ == '__main__':
         config = json.load(config_file)
 
     #Dump config file for debugging
-    print(json.dumps(config,indent=4)) 
+    #print(json.dumps(config,indent=4)) 
 
     api_key = config['inputs']['api_key']['key']
     session_id = config['destination']['id']
@@ -21,13 +21,13 @@ if __name__ == '__main__':
 
     fw = flywheel.Flywheel(api_key)
     session = fw.get_session(session_id)
-    print(session)
+    #print(session)
     project_id = session['project']
 
     #Dump config file for debugging
-    print(config)
-    print("Template file: %s" % template_file)
-    print("Session id: %s" % session_id)
+    #print(config)
+    #print("Template file: %s" % template_file)
+    #print("Session id: %s" % session_id)
 
     if (subject_only):
     	session_only = True
