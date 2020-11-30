@@ -15,12 +15,13 @@ if __name__ == '__main__':
 
     api_key = config['inputs']['api_key']['key']
     session_id = config['destination']['id']
+    #print("session id: %s" % session_id)
     reset = config['config']['reset']
     subject_only = not config['config']['entire_project']
     #template_file = config['config']['template_file']
     template_file = "bids-dni-v1.json"
 
-    fw = flywheel.Flywheel(api_key)
+    fw = flywheel.Client(api_key)
     session = fw.get_session(session_id)
     #print(session)
     project_id = session['project']
