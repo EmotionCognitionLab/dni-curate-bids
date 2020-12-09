@@ -99,7 +99,9 @@ if __name__ == '__main__':
                         base_file_name = echo_match.group(1)
                     echo_index = echo_match.group(2)
                     max_echo_index = max(max_echo_index, int(echo_index))
-                    f.update_info({"BIDS": {"Echo": echo_index }})
+                    cur_bids = f.info['BIDS']
+                    cur_bids['Echo'] = echo_index
+                    f.update_info({"BIDS": cur_bids})
                     updated_files += 1
 
             if updated_files > 0 and updated_files < max_echo_index:
@@ -110,7 +112,9 @@ if __name__ == '__main__':
                 if len(first_file) != 1:
                     print(f"For {session.subject.label}/{session.label}, expected to find one file named {first_file_name} as part of a multi-echo sequence in acquisiton {a.label}, but found {len(first_file)} files with that name. The echo indexing may be incorrect for this sequence.")
                 else:
-                    first_file[0].update_info({"BIDS": {"Echo": 1 }})
+                    cur_bids = first_file[0].info['BIDS']
+                    cur_bids['Echo'] = 1
+                    first_file[0].update_info({"BIDS": cur_bids})
 
 
         
