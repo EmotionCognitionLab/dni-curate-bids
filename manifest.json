@@ -6,12 +6,12 @@
   "maintainer": "Jonas Kaplan <jtkaplan@usc.edu>",
   "source": "https://github.com/uscbci/dni-curate-bids",
   "url": "http://bids.neuroimaging.io/",
-  "version": "0.6.8.12",
+  "version": "1.0",
   "custom": {
-    "docker-image": "flywheel/curate-bids:v0.6.8",
+    "docker-image": "flywheel/curate-bids:1.0.0_0.9.1",
     "gear-builder": {
       "category": "converter",
-      "image": "flywheel/curate-bids:v0.6.8"
+      "image": "flywheel/curate-bids:1.0.0_0.9.1"
     },
     "flywheel" : {
       "suite": "DNI"
