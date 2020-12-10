@@ -3,6 +3,93 @@ import flywheel
 from flywheel_bids.curate_bids import main_with_args, curate_bids_dir
 import re
 
+mag1_pattern = re.compile("^.*_e1\\.nii\\.gz")
+mag2_pattern = re.compile("^.*_e2\\.nii\\.gz")
+phase_pattern = re.compile("^.*_e2_ph\\.nii\\.gz")
+echo_pattern = re.compile("^(.*)_e([1-9])\\.nii\\.gz")
+bids_echo_pattern = re.compile("^(.*)echo-[1-9]_bold\\.nii\\.gz$")
+
+def set_echo_times(session):
+    mag1 = {}
+    mag2 = {}
+    phase = {}
+    acquisitions = session.acquisitions()
+    for acquisition in acquisitions:
+        fieldmap_files = list(filter(lambda f: 'Fieldmap' in f.classification.get('Intent', []) and f.type == 'nifti', acquisition.files))
+        # this may give incorrect results if a session somehow has >1 mag1, mag2 or phase files
+        for f in fieldmap_files:
+            if mag1_pattern.match(f.name):
+                mag1 = f
+            elif mag2_pattern.match(f.name):
+                mag2 = f
+            elif phase_pattern.match(f.name):
+                phase = f
+
+    if mag1 != {} and mag2 != {} and phase != {}:
+        mag1_meta = fw.get_acquisition_file_info(mag1.parent.id,mag1.name)
+        mag2_meta = fw.get_acquisition_file_info(mag2.parent.id,mag2.name)
+        echotime1 = mag1_meta.info['EchoTime']
+        echotime2 = mag2_meta.info['EchoTime']
+        print(f"For {session.subject.label}/{session.label}, setting EchoTime1={echotime1:.5f}, EchoTime2={echotime2:.5f} in file {phase.name}.")
+        phase.update_info({"EchoTime1":echotime1,"EchoTime2":echotime2})
+
+
+def set_echo_indices(session):
+    """Identifies multi-echo sequences and sets the BIDS echo index for each file in them.
+        Some multi-echo sequences start with *_e1.nii.gz, while others start with *.nii.gz 
+        and then go to *_e2.nii.gz, *_e3.nii.gz, ... 
+    """
+
+    def set_echo_bids_fields(cur_bids_info, echo_index):
+        cur_bids_info['Echo'] = echo_index
+        if cur_bids_info.get('Filename', '') != '':
+            cur_bids_info['Filename'] = add_echo_to_filename(cur_bids_info['Filename'], echo_index)
+        return cur_bids_info
+
+    acquisitions = session.acquisitions()
+    for a in acquisitions:
+        func_files = list(filter(lambda f: 'Functional' in f.classification.get('Intent', []) and 'nifti' == f.type, a.files))
+        updated_files = 0
+        max_echo_index = 0
+        base_file_name = ''
+
+        for f in func_files:
+            echo_match = echo_pattern.match(f.name)
+            if echo_match:
+                if updated_files == 0:
+                    base_file_name = echo_match.group(1)
+                echo_index = echo_match.group(2)
+                max_echo_index = max(max_echo_index, int(echo_index))
+                bids_data = set_echo_bids_fields(f.info['BIDS'], echo_index)
+                f.update_info({"BIDS": bids_data})
+                updated_files += 1
+
+        if updated_files > 0 and updated_files < max_echo_index:
+            # then the sequence started with a <base_file_name>.nii.gz file that we 
+            # haven't set the echo index on yet - find it and set it
+            first_file_name = base_file_name + '.nii.gz'
+            first_file = list(filter(lambda f: f.name == first_file_name, func_files))
+            if len(first_file) != 1:
+                print(f"For {session.subject.label}/{session.label}, expected to find one file named {first_file_name} as part of a multi-echo sequence in acquisiton {a.label}, but found {len(first_file)} files with that name. The echo indexing may be incorrect for this sequence.")
+            else:
+                bids_data = set_echo_bids_fields(first_file[0].info['BIDS'], 1)
+                first_file[0].update_info({"BIDS": bids_data})
+
+def add_echo_to_filename(filename, echo_index):
+    echo_info = f'echo-{echo_index}'
+    if echo_info in filename:
+        return filename
+    
+    other_echo_match = bids_echo_pattern.match(filename)
+    if other_echo_match:
+        # it has some other echo index - replace it
+        return f'{other_echo_match.group(1)}{echo_info}_bold.nii.gz'
+    elif filename.endswith('_bold.nii.gz'):
+        return filename.replace('_bold.nii.gz', f'_{echo_info}_bold.nii.gz')
+    else:
+        print(f'Expected {filename} to end with "_bold.nii.gz". Unable to set echo index.')
+        return filename
+
 if __name__ == '__main__':
 
     # Grab Config
@@ -38,38 +125,20 @@ if __name__ == '__main__':
 
     curate_bids_dir(fw, project_id, session_id, reset=reset, session_only=session_only,template_file=template_file)
 
-    # set the echotimes for any fieldmap acquisitions
-    mag1_pattern = re.compile("^.*_e1\\.nii\\.gz")
-    mag2_pattern = re.compile("^.*_e2\\.nii\\.gz")
-    phase_pattern = re.compile("^.*_e2_ph\\.nii\\.gz")
-
-    def set_echo_times(sess_id):
-        session = fw.get_session(sess_id)
-        acquisitions = session.acquisitions()
-        for acquisition in acquisitions:
-            # this may give incorrect results if an acquisition somehow has >1 mag1, mag2 or phase files
-            for f in acquisition.files:
-                if mag1_pattern.match(f.name):
-                    mag1 = f
-                elif mag2_pattern.match(f.name):
-                    mag2 = f
-                elif phase_pattern.match(f.name):
-                    phase = f
-
-        mag1_meta = fw.get_acquisition_file_info(mag1.parent.id,mag1.name)
-        mag2_meta = fw.get_acquisition_file_info(mag2.parent.id,mag2.name)
-        echotime1 = mag1_meta.info['EchoTime']
-        echotime2 = mag2_meta.info['EchoTime']
-        print(f"For {session.subject.label}/{session.label}, setting EchoTime1={echotime1:.5f}, EchoTime2={echotime2:.5f} in file {phase.name}.")
-        phase.update_info({"EchoTime1":echotime1,"EchoTime2":echotime2})
-
+    # set the echo times and indices for any fieldmap/multiecho acquisitions
     if session_only:
-        all_sessions = [session_id]
+        all_sessions = [session]
     else:
         project = fw.get_project(project_id)
-        search_result = fw.search({'return_type': 'session', 'structured_query': f"file.classification.Intent = 'Fieldmap' AND file.type = 'nifti' AND project.label = '{project.label}'"}, size=5000)
-        all_sessions = list(map(lambda item: item['session']['_id'], search_result))
+        all_sessions = project.sessions.iter()
 
-    for s_id in all_sessions:
-        set_echo_times(s_id)
+    for sess in all_sessions:
+        set_echo_times(sess)
+        set_echo_indices(sess)
+
+
+
+
+
+        
        
