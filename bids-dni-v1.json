@@ -458,7 +458,7 @@
 						"$on": "acquisition.label",
 						"$cases": [
 							{
-								"$regex": "(^|_)ignore-BIDS",
+								"$regex": "(^|.*_)ignore-BIDS",
 								"$value": true
 							},
 							{
